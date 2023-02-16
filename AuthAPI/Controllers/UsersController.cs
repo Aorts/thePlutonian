@@ -4,6 +4,10 @@ using AuthAPI.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace AuthAPI.Controllers
 {
@@ -35,8 +39,13 @@ namespace AuthAPI.Controllers
                 {
                     return NotFound(new { Message = "Invalid login, please try again!" });
                 }
- 
-                return Ok(new { Message = "Loggin Successful!" });
+
+                user.Token = CreateJwt(user);
+
+                return Ok(new { 
+                    Token = user.Token,
+                    Message = "Loggin Successful!" 
+                });
 
             }
             catch (Exception ex)
@@ -86,6 +95,29 @@ namespace AuthAPI.Controllers
         private async Task<bool> CheckEmailisExiting(string email)
         {
             return await _authContext.Users.AnyAsync(x => x.Email == email);
+        }
+
+        private string CreateJwt(User user)
+        {
+            var jwtTokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes("qOu4OiEsGNH44aNe0PF9NhZxnrETQtwLPKWWGty2OA");
+            var identity = new ClaimsIdentity( new Claim[]
+                {
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}")}
+                );
+            var credentails = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = identity,
+                Expires = DateTime.Now.AddDays(1),
+                SigningCredentials = credentails
+            };
+
+            var token = jwtTokenHandler.CreateToken(tokenDescriptor);
+
+            string result = jwtTokenHandler.WriteToken(token);
+            return result;
         }
  
     }
