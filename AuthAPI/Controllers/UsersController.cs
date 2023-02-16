@@ -1,6 +1,7 @@
 ﻿using AuthAPI.Context;
 using AuthAPI.Helpers;
 using AuthAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +16,13 @@ namespace AuthAPI.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
+
         private readonly AppDbContext _authContext;
         public UsersController(AppDbContext authContext)
         {
             _authContext = authContext;
         }
+
         [HttpPost]
         [Route("authen")]
         public async Task<IActionResult> Authenticate([FromBody] LoginModel userObj)
@@ -53,6 +56,7 @@ namespace AuthAPI.Controllers
                 throw ex;
             }
         }
+
         [HttpPost]
         [Route("register")]
         public async Task<IActionResult> RegisterUser([FromBody] User userObj)
@@ -88,36 +92,73 @@ namespace AuthAPI.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("getAllUsers")]
+        public async Task<IActionResult> getAllUsers()
+        {
+            try
+            {
+                return Ok(await _authContext.Users.ToListAsync());
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
         private async Task<bool> CheckUsernameisExiting(string username)
         {
-            return await _authContext.Users.AnyAsync(x => x.UserName == username);
+            try
+            {
+                return await _authContext.Users.AnyAsync(x => x.UserName == username);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
+
         private async Task<bool> CheckEmailisExiting(string email)
         {
-            return await _authContext.Users.AnyAsync(x => x.Email == email);
+            try
+            {
+                return await _authContext.Users.AnyAsync(x => x.Email == email);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
 
         private string CreateJwt(User user)
         {
-            var jwtTokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes("qOu4OiEsGNH44aNe0PF9NhZxnrETQtwLPKWWGty2OA");
-            var identity = new ClaimsIdentity( new Claim[]
-                {
+            try
+            {
+                var jwtTokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.ASCII.GetBytes("qOu4OiEsGNH44aNe0PF9NhZxnrETQtwLPKWWGty2OA");
+                var identity = new ClaimsIdentity(new Claim[]
+                    {
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}")}
-                );
-            var credentails = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
-            var tokenDescriptor = new SecurityTokenDescriptor
+                    );
+                var credentails = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = identity,
+                    Expires = DateTime.Now.AddDays(1),
+                    SigningCredentials = credentails
+                };
+
+                var token = jwtTokenHandler.CreateToken(tokenDescriptor);
+
+                string result = jwtTokenHandler.WriteToken(token);
+                return result;
+
+            }
+            catch(Exception ex)
             {
-                Subject = identity,
-                Expires = DateTime.Now.AddDays(1),
-                SigningCredentials = credentails
-            };
-
-            var token = jwtTokenHandler.CreateToken(tokenDescriptor);
-
-            string result = jwtTokenHandler.WriteToken(token);
-            return result;
+                throw ex;
+            }
         }
  
     }
