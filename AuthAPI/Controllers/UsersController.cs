@@ -26,13 +26,16 @@ namespace AuthAPI.Controllers
                 {
                     return BadRequest();
                 }
+
                 var user = await _authContext.Users.FirstOrDefaultAsync( 
-                    x => x.UserName == userObj.UserName && x.Password == userObj.Password
+                    x => x.UserName == userObj.UserName
                     );
-                if (user == null)
+
+                if (user == null || !PasswordHasher.VerifyPassword(userObj.Password, user.Password))
                 {
-                    return NotFound(new { Message = "User Not Found"});
+                    return NotFound(new { Message = "Invalid login, please try again!" });
                 }
+ 
                 return Ok(new { Message = "Loggin Successful!" });
 
             }
@@ -51,6 +54,17 @@ namespace AuthAPI.Controllers
                 {
                     return BadRequest();
                 }
+
+                if (await CheckUsernameisExiting(userObj.UserName))
+                {
+                    return BadRequest(new { Message = "Username Already Exit!" });
+                }
+
+                if (await CheckEmailisExiting(userObj.Email))
+                {
+                    return BadRequest(new { Message = "Email Already Exit!" });
+                }
+
                 userObj.Password = PasswordHasher.HashPassword(userObj.Password);
                 userObj.Role = "User";
                 userObj.Token = "";
@@ -64,5 +78,15 @@ namespace AuthAPI.Controllers
                 throw ex;
             }
         }
+
+        private async Task<bool> CheckUsernameisExiting(string username)
+        {
+            return await _authContext.Users.AnyAsync(x => x.UserName == username);
+        }
+        private async Task<bool> CheckEmailisExiting(string email)
+        {
+            return await _authContext.Users.AnyAsync(x => x.Email == email);
+        }
+ 
     }
 }
